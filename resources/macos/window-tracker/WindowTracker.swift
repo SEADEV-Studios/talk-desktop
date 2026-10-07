@@ -26,9 +26,13 @@ guard CommandLine.arguments.count == 2, let windowId = CGWindowID(CommandLine.ar
 	exit(64)
 }
 
-/// Get the info of a single window, including when it is not on screen
+/// Get the info of a single window, including when it is not on screen.
+/// Note: CGWindowListCopyWindowInfo with optionIncludingWindow returns nothing for a minimized window.
 func getWindowInfo(_ id: CGWindowID) -> [String: Any]? {
-	let list = CGWindowListCopyWindowInfo([.optionIncludingWindow], id) as? [[String: Any]]
+	// The array must contain raw CGWindowID values, not objects
+	var windowId = UnsafeRawPointer(bitPattern: UInt(id))
+	let windowIds = CFArrayCreate(kCFAllocatorDefault, &windowId, 1, nil)
+	let list = CGWindowListCreateDescriptionFromArray(windowIds) as? [[String: Any]]
 	return list?.first
 }
 
