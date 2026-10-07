@@ -55,7 +55,13 @@ export function createScreensharingMarkerWindow(bounds: Rectangle, { isWindowMar
 	if (!isWindowMarker) {
 		// Above any other window, including fullscreen applications and other always-on-top windows
 		window.setAlwaysOnTop(true, 'screen-saver')
-		window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true })
+	}
+	// A window marker is also needed on a fullscreen Space of the marked window.
+	// It is hidden while the marked window is not on the current Space.
+	window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true })
+	if (isMac) {
+		// Otherwise Mission Control shows the marker as a separate window
+		window.setHiddenInMissionControl(true)
 	}
 	// Exclude the marker from the captured stream, so that it is visible locally only.
 	// Not supported on Linux, there the marker is a part of the shared screen.

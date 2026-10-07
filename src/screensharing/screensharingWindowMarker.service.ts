@@ -10,7 +10,7 @@
 import type { BrowserWindow, Rectangle } from 'electron'
 import type { ChildProcessWithoutNullStreams } from 'node:child_process'
 
-import { app } from 'electron'
+import { app, screen } from 'electron'
 import { spawn } from 'node:child_process'
 import path from 'node:path'
 import { createScreensharingMarkerWindow } from './screensharingMarker.window.ts'
@@ -97,13 +97,7 @@ function applyTrackedWindowState(state: TrackedWindowState) {
 		return
 	}
 
-	// The border is drawn around the window, not over its content
-	const bounds = {
-		x: state.x - BORDER_WIDTH,
-		y: state.y - BORDER_WIDTH,
-		width: state.width + 2 * BORDER_WIDTH,
-		height: state.height + 2 * BORDER_WIDTH,
-	}
+	const bounds = getMarkerBounds(state)
 
 	if (!markerWindow) {
 		markerWindow = createScreensharingMarkerWindow(bounds, { isWindowMarker: true })
@@ -136,4 +130,36 @@ function applyTrackedWindowState(state: TrackedWindowState) {
 			console.error('[window-tracker] Failed to move the marker above the window', error)
 		}
 	}
+}
+
+/**
+ * Get the bounds of the marker for the marked window bounds.
+ *
+ * The border is drawn around the window, not over its content.
+ * But a fullscreen or a maximized window leaves no space for the border on the display,
+ * so the marker is kept within the display of the window, drawing the border over the window edges there.
+ *
+ * @param windowBounds - The marked window bounds
+ */
+function getMarkerBounds(windowBounds: Rectangle): Rectangle {
+	let left = windowBounds.x - BORDER_WIDTH
+	let top = windowBounds.y - BORDER_WIDTH
+	let right = windowBounds.x + windowBounds.width + BORDER_WIDTH
+	let bottom = windowBounds.y + windowBounds.height + BORDER_WIDTH
+
+	// Only when the window is entirely on a single display.
+	// A window spanning multiple displays is marked across all of them.
+	const display = screen.getDisplayMatching(windowBounds).bounds
+	const isOnSingleDisplay = windowBounds.x >= display.x
+		&& windowBounds.y >= display.y
+		&& windowBounds.x + windowBounds.width <= display.x + display.width
+		&& windowBounds.y + windowBounds.height <= display.y + display.height
+	if (isOnSingleDisplay) {
+		left = Math.max(left, display.x)
+		top = Math.max(top, display.y)
+		right = Math.min(right, display.x + display.width)
+		bottom = Math.min(bottom, display.y + display.height)
+	}
+
+	return { x: left, y: top, width: right - left, height: bottom - top }
 }
