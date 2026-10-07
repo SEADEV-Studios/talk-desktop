@@ -8,8 +8,9 @@ import type { SharedScreensharingSource } from './screensharing.types.ts'
 
 import { screen } from 'electron'
 import { getAppConfig, onAppConfigChange } from '../app/AppConfig.ts'
-import { isWayland, isWindows } from '../app/system.utils.ts'
+import { isMac, isWayland, isWindows } from '../app/system.utils.ts'
 import { createScreensharingMarkerWindow } from './screensharingMarker.window.ts'
+import { hideWindowMarker, showWindowMarker } from './screensharingWindowMarker.service.ts'
 
 /** The source that is currently being shared, if any */
 let sharedSource: SharedScreensharingSource | null = null
@@ -91,6 +92,13 @@ function renderScreensharingMarker() {
 	// so the other participants would see it.
 	const isMarkerEnabled = !isWayland && !isWindows && getAppConfig('screensharingMarker')
 	const displays = sharedSource && isMarkerEnabled ? getSharedDisplays(sharedSource) : []
+
+	// PROTOTYPE: a single window is marked on macOS
+	if (isMac && isMarkerEnabled && sharedSource?.id.startsWith('window:')) {
+		showWindowMarker(sharedSource.id)
+	} else {
+		hideWindowMarker()
+	}
 	const sharedDisplayIds = new Set(displays.map((display) => display.id))
 
 	for (const [displayId, window] of markerWindows) {
@@ -106,7 +114,7 @@ function renderScreensharingMarker() {
 			// The display might have been moved or resized
 			window.setBounds(display.bounds)
 		} else {
-			markerWindows.set(display.id, createScreensharingMarkerWindow(display))
+			markerWindows.set(display.id, createScreensharingMarkerWindow(display.bounds))
 		}
 	}
 

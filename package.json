@@ -25,6 +25,7 @@
     "build:windows": "electron-forge package --platform=win32",
     "build:windows:arm64": "electron-forge package --platform=win32 --arch=arm64",
     "build:windows:x64": "electron-forge package --platform=win32 --arch=x64",
+    "build:window-tracker": "swiftc -O -swift-version 5 resources/macos/window-tracker/WindowTracker.swift -o resources/macos/window-tracker/window-tracker",
     "dev": "electron-forge start",
     "download-vue-devtools": "node ./scripts/download-vue-devtools.mjs",
     "generate-icons": "node ./scripts/generate-icons.js",

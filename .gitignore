@@ -46,3 +46,6 @@ out/
 .copilot/
 .gemini/
 opencode.json
+
+# PROTOTYPE: compiled macOS window tracker
+resources/macos/window-tracker/window-tracker
