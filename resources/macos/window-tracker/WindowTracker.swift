@@ -8,10 +8,11 @@
 // Usage: window-tracker <windowId>
 //
 // Prints a JSON line on every change of the tracked window:
-//   {"x":0,"y":0,"width":0,"height":0,"onScreen":true,"above":123}
+//   {"x":0,"y":0,"width":0,"height":0,"onScreen":true,"pid":1,"above":[{"id":2,"pid":3}]}
 // - x, y, width, height - bounds in global screen coordinates (points, top-left origin, as in Electron)
 // - onScreen - false when the window is minimized, hidden or on another Space
-// - above - number of the window directly above the tracked one on the same layer, 0 if none
+// - pid - process ID of the tracked window owner
+// - above - windows above the tracked one on the same layer, nearest first
 // Prints {"gone":true} and exits when the window is closed.
 // Exits when stdin is closed, so it never outlives the app.
 
@@ -31,12 +32,17 @@ func getWindowInfo(_ id: CGWindowID) -> [String: Any]? {
 	return list?.first
 }
 
-/// Get the number of the window directly above the given one on the same layer
-func getWindowAbove(_ id: CGWindowID, layer: Int) -> Int {
-	// Front-to-back order: the closest window above is the last one
+/// Get the windows above the given one on the same layer as JSON, nearest first.
+/// Note: not only the nearest window, as some applications keep their own small windows directly above a window,
+/// for example, iTerm2, which would hide any change of the z-order beyond it.
+func getWindowsAbove(_ id: CGWindowID, layer: Int) -> String {
 	let list = CGWindowListCopyWindowInfo([.optionOnScreenAboveWindow], id) as? [[String: Any]] ?? []
-	let sameLayer = list.filter { ($0[kCGWindowLayer as String] as? Int) == layer }
-	return sameLayer.last?[kCGWindowNumber as String] as? Int ?? 0
+	// Front-to-back order: the closest window above is the last one
+	return list
+		.filter { ($0[kCGWindowLayer as String] as? Int) == layer }
+		.reversed()
+		.map { "{\"id\":\($0[kCGWindowNumber as String] as? Int ?? 0),\"pid\":\($0[kCGWindowOwnerPID as String] as? Int ?? 0)}" }
+		.joined(separator: ",")
 }
 
 var lastOutput = ""
@@ -51,9 +57,10 @@ func poll() {
 
 	let onScreen = info[kCGWindowIsOnscreen as String] as? Bool ?? false
 	let layer = info[kCGWindowLayer as String] as? Int ?? 0
-	let above = onScreen ? getWindowAbove(windowId, layer: layer) : 0
+	let pid = info[kCGWindowOwnerPID as String] as? Int ?? 0
+	let above = onScreen ? getWindowsAbove(windowId, layer: layer) : ""
 
-	let output = "{\"x\":\(Int(bounds.origin.x)),\"y\":\(Int(bounds.origin.y)),\"width\":\(Int(bounds.width)),\"height\":\(Int(bounds.height)),\"onScreen\":\(onScreen),\"above\":\(above)}"
+	let output = "{\"x\":\(Int(bounds.origin.x)),\"y\":\(Int(bounds.origin.y)),\"width\":\(Int(bounds.width)),\"height\":\(Int(bounds.height)),\"onScreen\":\(onScreen),\"pid\":\(pid),\"above\":[\(above)]}"
 	if output != lastOutput {
 		lastOutput = output
 		print(output)

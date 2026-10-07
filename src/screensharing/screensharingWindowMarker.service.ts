@@ -20,8 +20,10 @@ const BORDER_WIDTH = 5
 
 type TrackedWindowState = { gone: true } | (Rectangle & {
 	onScreen: boolean
-	/** Number of the window directly above the tracked one, 0 if none */
-	above: number
+	/** Process ID of the tracked window owner */
+	pid: number
+	/** Windows above the tracked one on the same layer, nearest first */
+	above: { id: number, pid: number }[]
 })
 
 let trackedSourceId: string | null = null
@@ -121,8 +123,13 @@ function applyTrackedWindowState(state: TrackedWindowState) {
 		markerWindow.showInactive()
 	}
 
+	// The marker is in place when there are only windows of the same application between it and the marked window,
+	// for example, small accessory windows some applications keep directly above their windows
 	const markerWindowNumber = Number(markerWindow.getMediaSourceId().split(':')[1])
-	if (state.above !== markerWindowNumber) {
+	const markerIndex = state.above.findIndex((window) => window.id === markerWindowNumber)
+	const isMarkerInPlace = markerIndex !== -1
+		&& state.above.slice(0, markerIndex).every((window) => window.pid === state.pid)
+	if (!isMarkerInPlace) {
 		try {
 			markerWindow.moveAbove(trackedSourceId!)
 		} catch (error) {
